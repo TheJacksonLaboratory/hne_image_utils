@@ -1,4 +1,25 @@
 import json
+import numpy as np
+import pandas as pd
+
+def polygon_area(x,y):
+    """Calculate the area of polygon with contours specified as ***x*** and ***y*** coordinates.
+
+    Parameter:
+        x (np.array(dtype=float, ndim=1)): x coordinates of polygon contour
+        y (np.array(dtype=float, ndim=1)): y coordinates of polygon contour
+
+    Returns:
+        float: the area of the polygon with the given contour
+    """
+    # An alternative implementation:
+    # from shapely.geometry import Polygon
+    # pgon = Polygon(zip(x, y))
+    # return pgon.area
+    
+    correction = x[-1] * y[0] - y[-1]* x[0]
+    main_area = np.dot(x[:-1], y[1:]) - np.dot(y[:-1], x[1:])
+    return 0.5*np.abs(main_area + correction)
 
 def summarize_hovernet_cells(json_path):
     """Output summary statistics of cells in Hover-Net JSON file.
