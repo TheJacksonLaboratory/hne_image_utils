@@ -17,6 +17,8 @@ from shapely.affinity import scale
 from shapely.affinity import translate
 from shapely.ops import unary_union
 import pandas as pd
+from descartes import PolygonPatch
+import matplotlib.patches as mpatches
 
 def mask_to_polygons_layer(mask, scale_x = 1.0, scale_y = 1.0):
     """Transform each connected non-zero entry in mask into a shapely shape
@@ -304,7 +306,7 @@ def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, over
 
     # open the image and get its dimensions
     slide = openslide.open_slide(image_wsi_file)
-    # print('magnification: ' + str(slide.properties['openslide.objective-power']))
+    print('magnification: ' + str(slide.properties['openslide.objective-power']))
     xsz, ysz = slide.dimensions
 
     # create tiles and put them all in a search tree
@@ -441,4 +443,39 @@ def label_image_tile_region_and_tissue(image_wsi_file, annotation_geojson_file, 
         
     return tbl
 
+def plot_polygons(polys):
+    """Plot regional annotations represented by polys.
+
+    Parameter:
+        polys : dict (str: shapely.geometry.(Multi)Polygon) 
+           A dictionary from annotation class name to shapely (Multi)Polygon representing that annotation class.
+
+    Returns:
+        matplotlib.pyplot        
+    """
+    
+    BLUE = '#6699cc'
+    BLACK = '#000000'
+    GRAY = '#999999'
+    fig = plt.figure() 
+    ax = fig.gca() 
+    if 'Stroma' in polys.keys():
+        tmp = polys['Stroma']
+        tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
+        ax.add_patch(PolygonPatch(tmp, fc=BLUE, ec=BLUE, alpha=0.5, zorder=2 ))
+    if 'Tumor' in polys.keys():
+        tmp = polys['Tumor']
+        tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
+        ax.add_patch(PolygonPatch(tmp, fc=BLACK, ec=BLACK, alpha=0.5, zorder=2 ))
+    if 'Necrosis' in polys.keys():
+        tmp = polys['Necrosis']
+        tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
+        ax.add_patch(PolygonPatch(tmp, fc=GRAY, ec=GRAY, alpha=0.5, zorder=2 ))
+    ax.axis('scaled')
+    ax.axes.xaxis.set_visible(False)
+    ax.axes.yaxis.set_visible(False)
+    stroma_patch = mpatches.Patch(color=BLUE, label='Stroma')
+    tumor_patch = mpatches.Patch(color=BLACK, label='Tumor')
+    necrosis_patch = mpatches.Patch(color=GRAY, label='Necrosis')
+    plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch])
 
