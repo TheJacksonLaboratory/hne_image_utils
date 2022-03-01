@@ -95,7 +95,7 @@ def extract_cell_info_from_hovernet_output(json_path):
     centroid_ys = np.empty((n_cells,), dtype=float)
     cell_types = np.empty((n_cells,), dtype=np.uint8)
     cell_areas = np.empty((n_cells,), dtype=float)
-    ids = np.empty((n_cells,), dtype=np.uint8)
+    ids = np.empty((n_cells,), dtype=np.uint32)
 
     keys = list(nuc_info.keys())
     for i in range(0, n_cells):
@@ -110,7 +110,8 @@ def extract_cell_info_from_hovernet_output(json_path):
         centroid_ys[i] = inst_centroid[1]
         cell_types[i] = inst_type
         cell_areas[i] = area
-        ids[i] = keys[i]
+        # NB: keys[i] is a str (representing an integer)
+        ids[i] = np.uint32(keys[i])
 
     df = pd.DataFrame({"ids": ids, "centroid_x": centroid_xs, "centroid_y": centroid_ys, "cell_type": cell_types, "cell_type_area": cell_areas})
     return df, mag_info
