@@ -1,4 +1,6 @@
 import json
+# conda -c conda-forge ijson
+import ijson
 import numpy as np
 import pandas as pd
 
@@ -91,12 +93,13 @@ def extract_cell_info_from_hovernet_output(json_path):
     n_cells = len(nuc_info)
 
     # lists to store centroid x and y coordinates, cell type, cell area, and cell id
+    print('n_cells: ' + str(n_cells))
     centroid_xs = np.empty((n_cells,), dtype=float)
     centroid_ys = np.empty((n_cells,), dtype=float)
     cell_types = np.empty((n_cells,), dtype=np.uint8)
     cell_areas = np.empty((n_cells,), dtype=float)
     ids = np.empty((n_cells,), dtype=np.uint32)
-
+    
     keys = list(nuc_info.keys())
     for i in range(0, n_cells):
         inst_info = nuc_info[keys[i]]
@@ -112,6 +115,60 @@ def extract_cell_info_from_hovernet_output(json_path):
         cell_areas[i] = area
         # NB: keys[i] is a str (representing an integer)
         ids[i] = np.uint32(keys[i])
+
+    df = pd.DataFrame({"ids": ids, "centroid_x": centroid_xs, "centroid_y": centroid_ys, "cell_type": cell_types, "cell_type_area": cell_areas})
+    return df, mag_info
+
+def extract_cell_info_from_hovernet_output_ijson(json_path):
+    """Extract cell info (e.g., centroid location and cell type) from Hover-Net JSON output in a memory-efficient manner.
+
+    Parameter:
+        json_path (str): path to json file output by Hover-Net
+
+    Returns:
+        a tuple containing
+
+        - df (DataFrame): a DataFrame with columns cell_type (number to
+          be cross referenced with HoverNet type_info.json file), cell_type_area
+          (the total area of all cells of cell_type), and cell_type_counts
+          (the total number of cells of cell_type).
+        - mag (float): the magnification of the image Hover-Net was run on
+    """
+    # json_file = open(json_path)
+    # data = ijson.parse(json_file)
+    data = ijson.parse(open(json_path))
+    n_cells = sum(1 for x in ijson.kvitems(data, 'nuc'))
+
+    data = ijson.parse(open(json_path))
+    mag = ijson.items(data, 'mag')
+    mag_info = next(mag)
+    
+    # lists to store centroid x and y coordinates, cell type, cell area, and cell id
+    print('n_cells: ' + str(n_cells))
+    centroid_xs = np.empty((n_cells,), dtype=float)
+    centroid_ys = np.empty((n_cells,), dtype=float)
+    cell_types = np.empty((n_cells,), dtype=np.uint8)
+    cell_areas = np.empty((n_cells,), dtype=float)
+    ids = np.empty((n_cells,), dtype=np.uint32)
+
+    # data = ijson.parse(json_file)
+    data = ijson.parse(open(json_path))
+    nuc = ijson.kvitems(data, 'nuc')
+    i = 0
+    for k, inst_info in nuc:
+        inst_centroid = inst_info['centroid']
+        inst_contour = inst_info['contour']
+        inst_type = inst_info['type']
+        x=np.asarray(inst_contour)[:,0]
+        y=np.asarray(inst_contour)[:,1]
+        area = polygon_area(x, y)
+        centroid_xs[i] = inst_centroid[0]
+        centroid_ys[i] = inst_centroid[1]
+        cell_types[i] = inst_type
+        cell_areas[i] = area
+        # NB: keys[i] is a str (representing an integer)
+        ids[i] = np.uint32(k)
+        i = i + 1
 
     df = pd.DataFrame({"ids": ids, "centroid_x": centroid_xs, "centroid_y": centroid_ys, "cell_type": cell_types, "cell_type_area": cell_areas})
     return df, mag_info
