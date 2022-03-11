@@ -61,31 +61,40 @@ def mask_to_polygons_layer(mask, scale_x = 1.0, scale_y = 1.0):
             all_polygons = shapely.geometry.MultiPolygon([all_polygons])
     return all_polygons
 
-def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file):
-    """Read in a tissue mask and convert it to a shapely (Multi)Polygon of the same scale as the original image.
+def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = None):
+    """Read in a tissue mask and convert it to a shapely (Multi)Polygon of the same scale as the original image (if provided) or as magnification otherwise.
 
     Parameter:
-        image_wsi_file : str
-           The image file to read. File should be compatiable with openslide.
+        image_wsi_file : str or None
+           The image file to read. File should be compatiable with openslide. 
 
         tissue_mask_file : str
            The image mask file to read.
+
+        magnification : float, optional
+           Magnification to which the mask should be upscaled. If None, use the full magnification of the WSI.
            
     Returns:
         shapely.geometry.(Multi)Polygon: a single (Multi)Polygon representing the (non-zero entries in the) mask
     """
-    
+
+    tol = 10**-1
+
     # open the image and get its dimensions
     slide = openslide.open_slide(image_wsi_file)
     xsz, ysz = slide.dimensions
-    
+    slide_mag = slide.properties['openslide.objective-power']
+
+    factor = 1
+    if not magnification is None:
+        factor = slide_mag / magnification
+
     # open the mask and determine its potential downscaling relative to the full image
     mask = plt.imread(tissue_mask_file)
-    scale_x = xsz / mask.shape[1]
-    scale_y = ysz / mask.shape[0]
-    
+    scale_x = xsz / mask.shape[1] / factor
+    scale_y = ysz / mask.shape[0] / factor
+                
     # confirm that the downscaling is an integer (modulo some rounding)
-    tol = 10**-1
     if abs(scale_x - round(scale_x)) > tol:
         raise Exception(str(scale_x) + " is not (close to) an integer")
     if abs(scale_y - round(scale_y)) > tol:
@@ -96,7 +105,10 @@ def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file):
         raise Exception("scale_x (" + str(scale_x) + ") != scale_y (" + str(scale_y) + ")")
 
     # translate the tissue mask to an (upscaled) shapely Polygon
-    print('Upscaling tissue mask by ' + str(scale_x) + ' in x and ' + str(scale_y) + ' in y')    
+    target_mag = slide_mag
+    if not magnification is None:
+        target_mag = magnification
+    print('Upscaling tissue mask by ' + str(scale_x) + ' in x and ' + str(scale_y) + ' in y to reach target mag of ' + str(target_mag) + ' from original mag ' + str(slide_mag))
     tissue_polygons = mask_to_polygons_layer(mask, scale_x, scale_y)
     
     # combine any disjoint pieces in the mask to a single (Multi)Polygon
