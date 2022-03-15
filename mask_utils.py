@@ -83,7 +83,7 @@ def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = No
     # open the image and get its dimensions
     slide = openslide.open_slide(image_wsi_file)
     xsz, ysz = slide.dimensions
-    slide_mag = slide.properties['openslide.objective-power']
+    slide_mag = int(slide.properties['openslide.objective-power'])
 
     factor = 1
     if not magnification is None:
@@ -274,7 +274,7 @@ def calculate_tile_annotation_properties(tile, annotation_polygon):
     return [minx, maxx, miny, maxy, area]
 
 
-def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, overlap = 0, column_prefix = ''):
+def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, overlap = 0, magnification = None, column_prefix = ''):
     """Label tiles within the image according to their overlap with named annotations.
 
     Parameter:
@@ -290,6 +290,9 @@ def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, over
         overlap : int
            The number of pixels overlapping contiguous tiles (in both the x and y dimensions)
     
+        magnification : float, optional
+           Magnification at which the image should be tiled. If None, use the full magnification of the WSI.
+
         column_prefix : str
            A string to prepend to the annotation columns returned. For example for annotation 'anno' and label 'lbl', there would be column ***column_prefix***anno_lbl
        
@@ -318,9 +321,17 @@ def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, over
 
     # open the image and get its dimensions
     slide = openslide.open_slide(image_wsi_file)
-    print('magnification: ' + str(slide.properties['openslide.objective-power']))
+    slide_mag = int(slide.properties['openslide.objective-power'])
+    print('magnification: ' + str(slide_mag))
     xsz, ysz = slide.dimensions
 
+    factor = 1
+    if not magnification is None:
+        factor = slide_mag / magnification
+
+    xsz = int(xsz / factor)
+    ysz = int(ysz / factor)    
+        
     # create tiles and put them all in a search tree
     # dz = DeepZoomGenerator(slide, tile_size, overlap, limit_bounds=True)
     tile_polys = []
@@ -371,6 +382,8 @@ def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, over
     tbl = tbl.fillna(0)
     
     tbl['tile'] = tbl[['minx', 'miny']].apply(lambda x: str(int(x[0] / tile_size)) + "_" + str(int(x[1] / tile_size)), axis = 1)
+    tbl['downsample_factor'] = factor
+    tbl['magnification'] = slide_mag
     
     classes = [cls for cls in annotation_polygons.keys()]
     class_areas = [column_prefix + cls + '_area' for cls in annotation_polygons.keys()]
