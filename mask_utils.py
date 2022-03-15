@@ -99,8 +99,8 @@ def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = No
         raise Exception(str(scale_x) + " is not (close to) an integer")
     if abs(scale_y - round(scale_y)) > tol:
         raise Exception(str(scale_y) + " is not (close to) an integer")
-    # scale_x = int(scale_x)
-    # scale_y = int(scale_y)
+    scale_x = round(scale_x)
+    scale_y = round(scale_y)
     if round(scale_x) != round(scale_y):
         raise Exception("scale_x (" + str(scale_x) + ") != scale_y (" + str(scale_y) + ")")
 
