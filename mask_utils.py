@@ -383,7 +383,12 @@ def label_image_tiles(image_wsi_file, annotation_polygons, tile_size = 512, over
     
     tbl['tile'] = tbl[['minx', 'miny']].apply(lambda x: str(int(x[0] / tile_size)) + "_" + str(int(x[1] / tile_size)), axis = 1)
     tbl['downsample_factor'] = factor
-    tbl['magnification'] = slide_mag
+
+    target_mag = slide_mag
+    if not magnification is None:
+        target_mag = magnification
+    
+    tbl['magnification'] = target_mag
     
     classes = [cls for cls in annotation_polygons.keys()]
     class_areas = [column_prefix + cls + '_area' for cls in annotation_polygons.keys()]
