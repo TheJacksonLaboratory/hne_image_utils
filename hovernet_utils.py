@@ -110,7 +110,7 @@ def extract_cell_info_lists_from_hovernet_output(json_path):
 
     return mag_info, bbox_list, centroid_list, contour_list, type_list
 
-def filter_hovernet_nuclei_by_tile_bounds(bbox_list, centroid_list, contour_list, type_list, xmin, xmax, width, height, scale_factor = 1):
+def filter_hovernet_nuclei_by_tile_bounds(bbox_list, centroid_list, contour_list, type_list, xmin, ymin, width, height, scale_factor = 1):
     """Filter the nuclei bounded by a tile and remap the coordinates of the nuclei relative to the top left of the tile
 
     Parameter:
@@ -118,7 +118,7 @@ def filter_hovernet_nuclei_by_tile_bounds(bbox_list, centroid_list, contour_list
         centroid_list (list): centroids for each nucleus
         contour_list (list): contours for each nucleus
         type_list (list): types associated with each nucleus
-        xmin, xmax (int): coordinates of top left corner of tile
+        xmin, ymin (int): coordinates of top left corner of tile
         width, height (int): width and height of tile
         scale_factor (float): ratio by which to _down_sample coordinates (i.e., scale of coordinates of nuclei relative to original image)
 
