@@ -148,7 +148,7 @@ def filter_hovernet_nuclei_by_tile_bounds(bbox_list, centroid_list, contour_list
             cnt_adj = np.round((cnt_tmp - np.array([xmin, ymin])) / scale_factor).astype('int')
             centroid = centroid_list[idx]
             centroid_adj = ( centroid - np.array([xmin, ymin]) ) / scale_factor
-            bbox_tmp = np.array(bbox_list[indx])
+            bbox_tmp = np.array(bbox_list[idx])
             bbox_adj = np.round((bbox_tmp - np.array([xmin, ymin])) / scale_factor).astype('int')
             filtered_contour_list.append(cnt_adj)
             filtered_centroid_list.append(centroid_adj)
