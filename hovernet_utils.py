@@ -70,6 +70,92 @@ def summarize_hovernet_cells(json_path):
     df = pd.DataFrame({"cell_type": keys, "cell_type_area": areas, "cell_type_counts": counts})
     return df, mag_info
 
+def extract_cell_info_lists_from_hovernet_output(json_path):
+    """Extract cell info (e.g., centroid location and cell type) from Hover-Net JSON output.
+
+    Parameter:
+        json_path (str): path to json file output by Hover-Net
+
+    Returns:
+        - mag (float): the magnification of the image Hover-Net was run on
+        - bbox_list (list): bounding boxes for each nucleus
+        - centroid_list (list): centroids for each nucleus
+        - contour_list (list): contours for each nucleus
+        - type_list (list): types associated with each nucleus
+    """
+    json_file = open(json_path)
+    data = json.load(json_file)
+
+    mag_info = data['mag']
+    nuc_info = data['nuc']
+    n_cells = len(nuc_info)
+
+    print('n_cells: ' + str(n_cells))
+
+    bbox_list = []
+    centroid_list = []
+    contour_list = [] 
+    type_list = []
+
+    for inst in nuc_info:
+        inst_info = nuc_info[inst]
+        inst_centroid = inst_info['centroid']
+        centroid_list.append(inst_centroid)
+        inst_contour = inst_info['contour']
+        contour_list.append(inst_contour)
+        inst_bbox = inst_info['bbox']
+        bbox_list.append(inst_bbox)
+        inst_type = inst_info['type']
+        type_list.append(inst_type)
+
+    return mag_info, bbox_list, centroid_list, contour_list, type_list
+
+def filter_hovernet_nuclei_by_tile_bounds(bbox_list, centroid_list, contour_list, type_list, xmin, xmax, width, height, scale_factor = 1):
+    """Filter the nuclei bounded by a tile and remap the coordinates of the nuclei relative to the top left of the tile
+
+    Parameter:
+        bbox_list (list): bounding boxes for each nucleus
+        centroid_list (list): centroids for each nucleus
+        contour_list (list): contours for each nucleus
+        type_list (list): types associated with each nucleus
+        xmin, xmax (int): coordinates of top left corner of tile
+        width, height (int): width and height of tile
+        scale_factor (float): ratio by which to _down_sample coordinates (i.e., scale of coordinates of nuclei relative to original image)
+
+    Returns:
+        - bbox_list (list): bounding boxes for each nucleus within tile, scaled and relative to tile top left corner
+        - centroid_list (list): centroids for each nucleus within tile, scaled and relative to tile top left corner
+        - contour_list (list): contour_list for each nucleus within tile, scaled and relative to tile top left corner
+        - type_list (list): type for each nucleus within tile
+
+    """
+
+    filtered_bbox_list = []
+    filtered_centroid_list = []
+    filtered_contour_list = [] 
+    filtered_type_list = []
+
+    coords_xmin = xmin
+    coords_xmax = xmin + width
+    coords_ymin = ymin
+    coords_ymax = ymin + height
+    
+    for idx, cnt in enumerate(contour_list):
+        cnt_tmp = np.array(cnt)
+        cnt_tmp = cnt_tmp[(cnt_tmp[:,0] >= coords_xmin) & (cnt_tmp[:,0] <= coords_xmax) & (cnt_tmp[:,1] >= coords_ymin) & (cnt_tmp[:,1] <= coords_ymax)] 
+        if cnt_tmp.shape[0] > 0:
+            label = str(type_list[idx])
+            cnt_adj = np.round((cnt_tmp - np.array([xmin, ymin])) / scale_factor).astype('int')
+            centroid = centroid_list[idx]
+            centroid_adj = ( centroid - np.array([xmin, ymin]) ) / scale_factor
+            bbox_tmp = np.array(bbox_list[indx])
+            bbox_adj = np.round((bbox_tmp - np.array([xmin, ymin])) / scale_factor).astype('int')
+            filtered_contour_list.append(cnt_adj)
+            filtered_centroid_list.append(centroid_adj)
+            filtered_type_list.append(label)
+    
+    return filtered_bbox_list, filtered_centroid_list, filtered_contour_list, filtered_type_list
+
 def extract_cell_info_from_hovernet_output(json_path):
     """Extract cell info (e.g., centroid location and cell type) from Hover-Net JSON output.
 
