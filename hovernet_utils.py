@@ -166,9 +166,10 @@ def extract_cell_info_from_hovernet_output(json_path):
         a tuple containing
 
         - df (DataFrame): a DataFrame with columns cell_type (number to
-          be cross referenced with HoverNet type_info.json file), cell_type_area
-          (the total area of all cells of cell_type), and cell_type_counts
-          (the total number of cells of cell_type).
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
         - mag (float): the magnification of the image Hover-Net was run on
     """
     json_file = open(json_path)
@@ -215,9 +216,10 @@ def extract_cell_info_from_hovernet_output_ijson(json_path):
         a tuple containing
 
         - df (DataFrame): a DataFrame with columns cell_type (number to
-          be cross referenced with HoverNet type_info.json file), cell_type_area
-          (the total area of all cells of cell_type), and cell_type_counts
-          (the total number of cells of cell_type).
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
         - mag (float): the magnification of the image Hover-Net was run on
     """
     # json_file = open(json_path)
@@ -285,4 +287,186 @@ def extract_hovernet_cell_info(json_path):
     cell_tbl = cell_tbl.reset_index().rename(columns={'index':'id'})
 
     return cell_tbl
-    
+
+def compute_tabular_hovernet_results(hovernet_base_dir):
+    """Extract cell info (e.g., centroid location and cell type) from all Hover-Net output files in hovernet_base_dir
+
+    Parameter:
+        hovernet_base_dir (str): directory containing Hover-Net results for image <x> in sub-directory <hovernet_base_dir>/<x>_wsi/json/<x>.json
+
+    Returns:
+        a DataFrame with columns:
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
+          - image_id (string): the name of the image
+    """
+    hovernet_image_ids = [x for x in listdir(hovernet_base_dir) if x.endswith('_wsi')]
+    hovernet_image_ids = [x.replace('_wsi', '') for x in hovernet_image_ids]
+    print('Extracting cell info from hovernet')
+    dfs = [extract_cell_info_from_hovernet_output(hovernet_base_dir + x + '_wsi/' + 'json/' + x + '.json')[0] for x in hovernet_image_ids]
+    print('Creating hovernet DataFrame')
+    hov_df = pd.concat(dfs, keys = hovernet_image_ids).reset_index().drop("level_1", axis=1).rename(columns = {"level_0": "image_id", "ids": "cell_id"})
+    return hov_df
+
+def output_tabular_hovernet_results(hovernet_base_dir, output_file_prefix):
+    """Extract cell info (e.g., centroid location and cell type) from all Hover-Net output files in hovernet_base_dir and store all results in a single file <output_file_prefix>-hovernet-centroids.csv
+
+    Parameter:
+        hovernet_base_dir (str): directory containing Hover-Net results for image <x> in sub-directory <hovernet_base_dir>/<x>_wsi/json/<x>.json
+        output_file_prefix (str): prefix of file in which to store results (<output_file_prefix>-hovernet-centroids.csv)
+
+    Returns:
+        Nothing.
+        Writes a csv file <output_file_prefix>-hovernet-centroids.csv with the following columns:
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
+          - image_id (string): the name of the image
+    """
+    hov_df = compute_tabular_hovernet_results(hovernet_base_dir)
+    print('Outputing hovernet DataFrame')
+    hov_df.to_csv(output_file_prefix + "-hovernet-centroids.csv", index=False)
+
+def compute_tabular_tissue_mask_results(histoqc_base_dir, image_postfix = 'svs'):
+    """Compute number of non-zero pixels in all tissue masks within subdirectories of <histoqc_base_dir>, i.e., those files for image <x> in <histoqc_base_dir>/<x><image_postfix>/<x><image_postix>_mask_use.png
+
+    Parameter:
+        histoqc_base_dir (str): directory containing histoqc tissue masks results for image <x> in sub-directory <histoqc_base_dir>/<x><image_postfix>/<x><image_postix>_mask_use.png
+        image_postfix (str): the postfix used to find the images
+
+    Returns:
+        a DataFrame with columns:
+          - image (string): the name of the image
+          - mask_nz_pizels (int): the number of non-zero pixels in the tissue mask (at the resolution of the mask, which is 1.25X for histoqc, and not the resolution of the original image)
+    """
+    wsi_files = [x for x in listdir(histoqc_base_dir) if x.endswith(image_postfix)]
+    print('Counting non zeroes')
+    cnts = [count_non_zero_pixels(histoqc_base_dir + '/' + wsi_file + '/' + wsi_file + '_mask_use.png') for wsi_file in wsi_files]
+    print('Creating non-zero pixel DataFrame')
+    df = pd.DataFrame({'image': wsi_files, 'mask_nz_pixels': cnts})
+    return df 
+
+def output_tabular_results(histoqc_base_dir, hovernet_base_dir, output_file_prefix, image_postfix = 'svs'):
+    """Extract cell info (e.g., centroid location and cell type) from all Hover-Net output files in hovernet_base_dir and store all results in a single file <output_file_prefix>-hovernet-centroids.csv. Also store the number of non-zero pixels in the tissue masks for each of those images in a single file <output_file_prefix>-mask-area.csv
+
+    Parameter:
+        hovernet_base_dir (str): directory containing Hover-Net results for image <x> in sub-directory <hovernet_base_dir>/<x>_wsi/json/<x>.json
+        output_file_prefix (str): prefix of file in which to store results (<output_file_prefix>-hovernet-centroids.csv)
+        histoqc_base_dir (str): directory containing histoqc tissue masks results for image <x> in sub-directory <histoqc_base_dir>/<x><image_postfix>/<x><image_postix>_mask_use.png
+        image_postfix (str): the postfix used to find the images
+
+    Returns:
+        Nothing.
+
+        Writes a csv file <output_file_prefix>-hovernet-centroids.csv with the following columns:
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
+          - image_id (string): the name of the image
+
+        Writes a csv file <output_file_prefix>-mask-area.csv with the following columns:
+          - image (string): the name of the image
+          - mask_nz_pizels (int): the number of non-zero pixels in the tissue mask (at the resolution of the mask, which is 1.25X for histoqc, and not the resolution of the original image)
+    """
+    wsi_files = [x for x in listdir(histoqc_base_dir) if x.endswith(image_postfix)]
+    print('Counting non zeroes')
+    print(len(wsi_files))
+    cnts = [count_non_zero_pixels(histoqc_base_dir + '/' + wsi_file + '/' + wsi_file + '_mask_use.png') for wsi_file in wsi_files]
+    print('Creating non-zero pixel DataFrame')
+    df = pd.DataFrame({'image': wsi_files, 'mask_nz_pixels': cnts})
+    print('Outputing mask area DataFrame')
+    df.to_csv(output_file_prefix + "-mask-area.csv", index=False)
+    hovernet_image_ids = [x for x in listdir(hovernet_base_dir) if x.endswith('_wsi')]
+    hovernet_image_ids = [x.replace('_wsi', '') for x in hovernet_image_ids]
+    print(len(hovernet_image_ids))
+    print('Extracting cell info from hovernet')
+    dfs = [extract_cell_info_from_hovernet_output(hovernet_base_dir + x + '_wsi/' + 'json/' + x + '.json')[0] for x in hovernet_image_ids]
+    print('Creating hovernet DataFrame')
+    hov_df = pd.concat(dfs, keys = hovernet_image_ids).reset_index().drop("level_1", axis=1).rename(columns = {"level_0": "image_id", "ids": "cell_id"})
+    print('Outputing hovernet DataFrame')
+    hov_df.to_csv(output_file_prefix + "-hovernet-centroids.csv.gz", index=False)
+
+def output_tabular_results_per_file(histoqc_base_dir, hovernet_base_dir, output_file_prefix, image_postfix = 'svs'):
+    """Extract cell info (e.g., centroid location and cell type) from all Hover-Net results corresponding to image <x> in <hovernet_base_dir> and store results for each image in file <output_file_prefix>-<x>-hovernet-centroids.csv.gz. Also store the number of non-zero pixels in the tissue masks for each of those images in a single file <output_file_prefix>-mask-area.csv
+
+    Parameter:
+        histoqc_base_dir (str): directory containing histoqc tissue masks results for image <x> in sub-directory <histoqc_base_dir>/<x><image_postfix>/<x><image_postix>_mask_use.png
+        hovernet_base_dir (str): directory containing Hover-Net results for image <x> in sub-directory <hovernet_base_dir>/<x>_wsi/json/<x>.json
+        output_file_prefix (str): prefix of file in which to store results (<output_file_prefix>-hovernet-centroids.csv)
+        image_postfix (str): the postfix used to find the images
+
+    Returns:
+        Nothing.
+
+        Writes gzipped csv files <output_file_prefix>-<x>-hovernet-centroids.csv for each image <x> with the following columns:
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
+          - image_id (string): the name of the image
+
+        Writes a csv file <output_file_prefix>-mask-area.csv with the following columns:
+          - image (string): the name of the image
+          - mask_nz_pizels (int): the number of non-zero pixels in the tissue mask (at the resolution of the mask, which is 1.25X for histoqc, and not the resolution of the original image)
+    """
+    wsi_files = [x for x in listdir(histoqc_base_dir) if x.endswith(image_postfix)]
+    print('Counting non zeroes')
+    print(len(wsi_files))
+    cnts = [count_non_zero_pixels(histoqc_base_dir + '/' + wsi_file + '/' + wsi_file + '_mask_use.png') for wsi_file in wsi_files]
+    print('Creating non-zero pixel DataFrame')
+    df = pd.DataFrame({'image': wsi_files, 'mask_nz_pixels': cnts})
+    print('Outputing mask area DataFrame')
+    df.to_csv(output_file_prefix + "-mask-area.csv", index=False)
+    hovernet_image_ids = [x for x in listdir(hovernet_base_dir) if x.endswith('_wsi')]
+    hovernet_image_ids = [x.replace('_wsi', '') for x in hovernet_image_ids]
+    print('Extracting cell info from hovernet')
+    for x in hovernet_image_ids:
+        output_file = output_file_prefix + '-' + x + '-hovernet-centroids.csv.gz'
+        if not exists(output_file):
+            print(x)
+            df = extract_cell_info_from_hovernet_output(hovernet_base_dir + x + '_wsi/' + 'json/' + x + '.json')[0]
+            df = df.rename(columns = {"ids": "cell_id"})
+            df['image_id'] = x
+            df.to_csv(output_file, index=False)
+    print('Done extracting cell info from hovernet')
+
+def output_tabular_results_per_file_(hovernet_base_dir, hovernet_image_ids, output_file_prefix, use_ijson = False):
+    """Extract cell info (e.g., centroid location and cell type) from all Hover-Net results corresponding to image <x> in <hovernet_base_dir> and store results for each image in file <output_file_prefix>-<x>-hovernet-centroids.csv.gz. 
+
+    Parameter:
+        hovernet_base_dir (str): directory containing Hover-Net results for image <x> in sub-directory <hovernet_base_dir>/<x>_wsi/json/<x>.json
+        hovernet_image_ids (list of strings): list holding subset of images to process within hovernet_base_dir or None, if all should be processed
+        output_file_prefix (str): prefix of file in which to store results (<output_file_prefix>-hovernet-centroids.csv)
+        use_ijson (boolean): whether to parse Hover-Net files in a memory-efficient, but slow, manner using ijson.
+
+    Returns:
+        Nothing.
+
+        Writes gzipped csv files <output_file_prefix>-<x>-hovernet-centroids.csv for each image <x> with the following columns:
+          - cell_id (uint32): the id of the cell
+          - centroid_x, centroid_y (floats): the x and y coordinates of the cell's centroid
+          - cell_type (uint8): cell type identifier to be cross referenced with HoverNet type_info.json file 
+          - cell_type_area (float): area of cell
+          - image_id (string): the name of the image
+    """
+    ids = [x for x in listdir(hovernet_base_dir) if x.endswith('_wsi')]
+    ids = [x.replace('_wsi', '') for x in ids]
+    if hovernet_image_ids is not None:
+        ids = [x for x in ids if x in hovernet_image_ids]
+    print('Extracting cell info from hovernet: ' + str(len(ids)) + ' files')
+    for x in ids:
+        output_file = output_file_prefix + '-' + x + '-hovernet-centroids.csv.gz'
+        if not exists(output_file):
+            print(x)
+            if use_ijson:
+                df = extract_cell_info_from_hovernet_output_ijson(hovernet_base_dir + x + '_wsi/' + 'json/' + x + '.json')[0]
+            else:
+                df = extract_cell_info_from_hovernet_output(hovernet_base_dir + x + '_wsi/' + 'json/' + x + '.json')[0]
+            df = df.rename(columns = {"ids": "cell_id"})
+            df['image_id'] = x
+            df.to_csv(output_file, index=False)
+    print('Done extracting cell info from hovernet')
