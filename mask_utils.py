@@ -507,5 +507,7 @@ def plot_polygons(polys):
     stroma_patch = mpatches.Patch(color=BLUE, label='Stroma')
     tumor_patch = mpatches.Patch(color=BLACK, label='Tumor')
     necrosis_patch = mpatches.Patch(color=GRAY, label='Necrosis')
-    plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch])
+    # plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch])
+    # plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch], fontsize=10, loc='upper left', bbox_to_anchor=(1.04, 0.5))
+    plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch], fontsize=15, loc='upper center', bbox_to_anchor=(0.5, -0.04), ncol=3)
 
