@@ -473,7 +473,7 @@ def label_image_tile_region_and_tissue(image_wsi_file, annotation_geojson_file, 
         
     return tbl
 
-def plot_polygons(polys):
+def plot_polygons(polys, show_legend = True):
     """Plot regional annotations represented by polys.
 
     Parameter:
@@ -504,10 +504,12 @@ def plot_polygons(polys):
     ax.axis('scaled')
     ax.axes.xaxis.set_visible(False)
     ax.axes.yaxis.set_visible(False)
+    ax.axis('off')
     stroma_patch = mpatches.Patch(color=BLUE, label='Stroma')
     tumor_patch = mpatches.Patch(color=BLACK, label='Tumor')
     necrosis_patch = mpatches.Patch(color=GRAY, label='Necrosis')
     # plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch])
     # plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch], fontsize=10, loc='upper left', bbox_to_anchor=(1.04, 0.5))
-    plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch], fontsize=15, loc='upper center', bbox_to_anchor=(0.5, -0.04), ncol=3)
+    if show_legend:
+        plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch], fontsize=15, loc='upper center', bbox_to_anchor=(0.5, -0.04), ncol=3)
 
