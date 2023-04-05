@@ -488,19 +488,21 @@ def plot_polygons(polys, show_legend = True):
     BLACK = '#000000'
     GRAY = '#999999'
     fig = plt.figure() 
-    ax = fig.gca() 
+    ax = fig.gca()
+    #    alpha = 0.5
+    alpha = 1
     if 'Stroma' in polys.keys():
         tmp = polys['Stroma']
         tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
-        ax.add_patch(PolygonPatch(tmp, fc=BLUE, ec=BLUE, alpha=0.5, zorder=2 ))
+        ax.add_patch(PolygonPatch(tmp, fc=BLUE, ec=BLUE, alpha=alpha, zorder=2 ))
     if 'Tumor' in polys.keys():
         tmp = polys['Tumor']
         tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
-        ax.add_patch(PolygonPatch(tmp, fc=BLACK, ec=BLACK, alpha=0.5, zorder=2 ))
+        ax.add_patch(PolygonPatch(tmp, fc=BLACK, ec=BLACK, alpha=alpha, zorder=2 ))
     if 'Necrosis' in polys.keys():
         tmp = polys['Necrosis']
         tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
-        ax.add_patch(PolygonPatch(tmp, fc=GRAY, ec=GRAY, alpha=0.5, zorder=2 ))
+        ax.add_patch(PolygonPatch(tmp, fc=GRAY, ec=GRAY, alpha=alpha, zorder=2 ))
     ax.axis('scaled')
     ax.axes.xaxis.set_visible(False)
     ax.axes.yaxis.set_visible(False)
