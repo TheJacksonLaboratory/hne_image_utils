@@ -484,9 +484,11 @@ def plot_polygons(polys, show_legend = True):
         matplotlib.pyplot        
     """
     
-    BLUE = '#6699cc'
+    # BLUE = '#6699cc'
     BLACK = '#000000'
-    GRAY = '#999999'
+    # GRAY = '#999999'
+    BLUE = '#56B4E9'
+    ORANGE = '#E69F00'
     fig = plt.figure() 
     ax = fig.gca()
     #    alpha = 0.5
@@ -502,14 +504,16 @@ def plot_polygons(polys, show_legend = True):
     if 'Necrosis' in polys.keys():
         tmp = polys['Necrosis']
         tmp = shapely.affinity.affine_transform(tmp, [1, 0, 0, -1, 0, 0])
-        ax.add_patch(PolygonPatch(tmp, fc=GRAY, ec=GRAY, alpha=alpha, zorder=2 ))
+        # ax.add_patch(PolygonPatch(tmp, fc=GRAY, ec=GRAY, alpha=alpha, zorder=2 ))
+        ax.add_patch(PolygonPatch(tmp, fc=ORANGE, ec=ORANGE, alpha=alpha, zorder=2 ))        
     ax.axis('scaled')
     ax.axes.xaxis.set_visible(False)
     ax.axes.yaxis.set_visible(False)
     ax.axis('off')
     stroma_patch = mpatches.Patch(color=BLUE, label='Stroma')
     tumor_patch = mpatches.Patch(color=BLACK, label='Tumor')
-    necrosis_patch = mpatches.Patch(color=GRAY, label='Necrosis')
+    # necrosis_patch = mpatches.Patch(color=GRAY, label='Necrosis')
+    necrosis_patch = mpatches.Patch(color=ORANGE, label='Necrosis')
     # plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch])
     # plt.legend(handles=[stroma_patch, tumor_patch, necrosis_patch], fontsize=10, loc='upper left', bbox_to_anchor=(1.04, 0.5))
     if show_legend:
