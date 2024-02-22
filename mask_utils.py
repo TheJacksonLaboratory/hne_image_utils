@@ -20,6 +20,58 @@ import pandas as pd
 from descartes import PolygonPatch
 import matplotlib.patches as mpatches
 
+def mask_to_polygons(mask, scale_x = 1.0, scale_y = 1.0):
+    """Transform each connected non-zero entry in mask into an array of shapely shapes
+
+    Parameter:
+        mask : numpy.array
+           The image mask.
+
+        scale_x : float, optional
+           Factor by which to scale mask to be of the same x dimension as the original image.
+           
+        scale_y : float, optional
+           Factor by which to scale mask to be of the same y dimension as the original image.
+           
+    Returns:
+        an array of polygons
+    """
+
+    # This function taken from from https://rocreguant.com/convert-a-mask-into-a-polygon-for-images-using-shapely-and-rasterio/1786/
+    # with minor changes for upscaling
+
+    all_polygons = []
+    # rasterio.Affine(a, b, c, d, e, f) transforms x, y to x', y' via:
+    # | x' |   | a  b  c | | x |
+    # | y' | = | d  e  f | | y |
+    # | 1  |   | 0  0  1 | | 1 |
+    for shape, value in rasterio.features.shapes(mask.astype(np.int16), mask=(mask >0), transform=rasterio.Affine(scale_x, 0, 0, 0, scale_y, 0)):
+        # commented this out from the original code. leaving it in would return just the first
+        # component / polygon amongst the multiple in a disconnected mask.
+        # return shapely.geometry.shape(shape)
+        all_polygons.append(shapely.geometry.shape(shape))
+
+    return all_polygons
+
+def polygons_to_multipolygon(polygons):
+    """Transform each connected non-zero entry in mask into an array of shapely shapes
+
+    Parameter:
+        polygons : array of shapely shapes
+
+    Returns:
+        shapely.geometry.MultiPolygon: all connected shapely shapes
+    """
+
+    all_polygons = shapely.geometry.MultiPolygon(polygons)
+    if not all_polygons.is_valid:
+        all_polygons = all_polygons.buffer(0)
+        # Sometimes buffer() converts a simple Multipolygon to just a Polygon,
+        # need to keep it a Multi throughout
+        if all_polygons.type == 'Polygon':
+            all_polygons = shapely.geometry.MultiPolygon([all_polygons])
+    return all_polygons
+
 def mask_to_polygons_layer(mask, scale_x = 1.0, scale_y = 1.0):
     """Transform each connected non-zero entry in mask into a shapely shape
 
@@ -37,32 +89,12 @@ def mask_to_polygons_layer(mask, scale_x = 1.0, scale_y = 1.0):
         shapely.geometry.MultiPolygon: all connected shapely shapes
     """
 
-    # This function taken from from https://rocreguant.com/convert-a-mask-into-a-polygon-for-images-using-shapely-and-rasterio/1786/
-    # with minor changes for upscaling
+    all_polygons = mask_to_polygons(mask, scale_x, scale_y)
 
-    
-    all_polygons = []
-    # rasterio.Affine(a, b, c, d, e, f) transforms x, y to x', y' via:
-    # | x' |   | a  b  c | | x |
-    # | y' | = | d  e  f | | y |
-    # | 1  |   | 0  0  1 | | 1 |
-    for shape, value in rasterio.features.shapes(mask.astype(np.int16), mask=(mask >0), transform=rasterio.Affine(scale_x, 0, 0, 0, scale_y, 0)):
-        # commented this out from the original code. leaving it in would return just the first
-        # component / polygon amongst the multiple in a disconnected mask.
-        # return shapely.geometry.shape(shape)
-        all_polygons.append(shapely.geometry.shape(shape))
+    return polygons_to_multipolygon(all_polygons)
 
-    all_polygons = shapely.geometry.MultiPolygon(all_polygons)
-    if not all_polygons.is_valid:
-        all_polygons = all_polygons.buffer(0)
-        # Sometimes buffer() converts a simple Multipolygon to just a Polygon,
-        # need to keep it a Multi throughout
-        if all_polygons.type == 'Polygon':
-            all_polygons = shapely.geometry.MultiPolygon([all_polygons])
-    return all_polygons
-
-def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = None):
-    """Read in a tissue mask and convert it to a shapely (Multi)Polygon of the same scale as the original image (if provided) or as magnification otherwise.
+def determine_mask_to_wsi_scalefactor(image_wsi_file, tissue_mask_file, magnification = None):
+    """Determine the scale factor between a mask and an original WSI image (if provided) or as magnification otherwise.
 
     Parameter:
         image_wsi_file : str or None
@@ -75,7 +107,7 @@ def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = No
            Magnification to which the mask should be upscaled. If None, use the full magnification of the WSI.
            
     Returns:
-        shapely.geometry.(Multi)Polygon: a single (Multi)Polygon representing the (non-zero entries in the) mask
+        scale_x, scale_y: float scale factors
     """
 
     tol = 10**-1
@@ -108,7 +140,33 @@ def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = No
     target_mag = slide_mag
     if not magnification is None:
         target_mag = magnification
-    print('Upscaling tissue mask by ' + str(scale_x) + ' in x and ' + str(scale_y) + ' in y to reach target mag of ' + str(target_mag) + ' from original mag ' + str(slide_mag))
+
+    print('Upscaling by ' + str(scale_x) + ' in x and ' + str(scale_y) + ' in y to reach target mag of ' + str(target_mag) + ' from original mag ' + str(slide_mag))
+        
+    return scale_x, scale_y
+
+
+def upscale_mask_to_polygon(image_wsi_file, tissue_mask_file, magnification = None):
+    """Read in a tissue mask and convert it to a shapely (Multi)Polygon of the same scale as the original image (if provided) or as magnification otherwise.
+
+    Parameter:
+        image_wsi_file : str or None
+           The image file to read. File should be compatiable with openslide. 
+
+        tissue_mask_file : str
+           The image mask file to read.
+
+        magnification : float, optional
+           Magnification to which the mask should be upscaled. If None, use the full magnification of the WSI.
+           
+    Returns:
+        shapely.geometry.(Multi)Polygon: a single (Multi)Polygon representing the (non-zero entries in the) mask
+    """
+
+    scale_x, scale_y = determine_mask_to_wsi_scalefactor(image_wsi_file, tissue_mask_file, magnification)
+    
+    mask = plt.imread(tissue_mask_file)
+
     tissue_polygons = mask_to_polygons_layer(mask, scale_x, scale_y)
     
     # combine any disjoint pieces in the mask to a single (Multi)Polygon
